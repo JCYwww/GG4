@@ -52,7 +52,7 @@ export function preloadAssets() {
     this.load.image('key_right_mouse', 'assets/ui/key_right_mouse.png');
 
 //場景物品
-    this.load.image('background', 'assets/Scene/Scene.PNG');
+    this.load.image('background', 'assets/Scene/Scene.png');
     this.load.image('platform', 'assets/Scene/Floor.PNG');
     this.load.image('Door', 'assets/Scene/door.PNG');
     this.load.image('wall', 'assets/Scene/Wall.PNG');
