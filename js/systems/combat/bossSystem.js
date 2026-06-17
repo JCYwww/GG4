@@ -3,7 +3,6 @@
 
 import { gameState } from '../core/gameState.js';
 import { triggerGameOver } from '../core/gameOverSystem.js';
-import { hitObstacle } from '../world/interactionSystem.js';
 import { handleEnemyAttack } from './combatSystem.js';
 
 export function spawnBoss(x, y) {

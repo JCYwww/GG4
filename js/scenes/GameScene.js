@@ -504,6 +504,21 @@ export default class GameScene extends Phaser.Scene {
                 hintShown = true;
             }
         }
+        // else if (this.nearbyItem) {
+        //     const distToItem = Phaser.Math.Distance.Between(
+        //         this.player.x,
+        //         this.player.y,
+        //         this.nearbyItem.x,
+        //         this.nearbyItem.y
+        //     );
+
+        //     if (distToItem < 80) {
+        //         this.showInteractionHint(`${this.nearbyItem.itemType} !`, this.nearbyItem, 'key_E');
+        //         hintShown = true;
+        //     } else {
+        //         this.nearbyItem = null;
+        //     }
+        // }
         else if (this.nearbyItem) {
             const distToItem = Phaser.Math.Distance.Between(
                 this.player.x,
@@ -513,7 +528,20 @@ export default class GameScene extends Phaser.Scene {
             );
 
             if (distToItem < 80) {
-                this.showInteractionHint(`${this.nearbyItem.itemType} !`, this.nearbyItem, 'key_E');
+                // 1. 建立一個中英對照表
+                const itemChineseNames = {
+                    'bubbleGun': '泡泡糖',
+                    'jelly': '果凍',
+                    'popcorn': '爆米花',
+                    'marshmallow': '棉花糖',
+                    'candy': '彩虹糖'
+                };
+
+                // 2. 轉換名字，若找不到就用原本的英文
+                const itemName = itemChineseNames[this.nearbyItem.itemType] || this.nearbyItem.itemType;
+
+                // 3. 改成中文名稱顯示
+                this.showInteractionHint(`${itemName} !`, this.nearbyItem, 'key_E');
                 hintShown = true;
             } else {
                 this.nearbyItem = null;

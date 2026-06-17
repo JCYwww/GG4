@@ -4,7 +4,6 @@
 
 import { gameState } from '../../systems/core/gameState.js';
 import { hitBoss } from '../../systems/combat/bossSystem.js';
-import { hitObstacle } from '../../systems/world/interactionSystem.js';
 import { collectItem } from '../../systems/world/itemSystem.js';
 import { collectTablet } from '../../systems/world/worldBuilder.js';
 import { setupGhosts } from '../enemies/enemies.js';

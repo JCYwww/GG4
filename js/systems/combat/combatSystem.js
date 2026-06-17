@@ -80,13 +80,13 @@ export function handleEnemyAttack(scene, player, enemyAttack) {
         return;
     }
 
-    // 2. 泡泡糖防護罩 / 泡泡槍（bubbleGun）反制判定
+    // 2. 泡泡糖防護罩（bubbleGun）反制判定
     // 對抗常規近戰幽靈、魔王直接碰撞、以及魔王的「狂暴衝刺」
-    if (attackType === 'ghost_melee' || attackType ==='ghost_range') {
+    if (attackType === 'ghost_melee' || attackType ==='ghost_range' || attackType ==='candy_arrow' || attackType ==='shockwave_left'
+        || attackType ==='shockwave_center' || attackType ==='shockwave_right'
+    ) {
         if (currentEquipment === 'bubbleGun') {
-            console.log("泡泡糖防護罩發動！成功將傷害減半（3點重傷 ➔ 降為 1點）！");
-            triggerEquipmentEffect(scene, player, '防護罩減傷！');
-            
+            triggerEquipmentEffect(scene, player, '防護罩減傷');
             // 鎖定無敵狀態
             scene.isInvincible = true; 
             

@@ -1,5 +1,6 @@
 import { gameState } from '../../systems/core/gameState.js';
 import { damagePlayer } from '../../systems/core/gameOverSystem.js';
+import { handleEnemyAttack } from '../../systems/combat/combatSystem.js';
 
 // 幽靈初始化
 // 初始化幽靈群組、設定初始位置與屬性、註冊全域碰撞監聽器
@@ -25,13 +26,19 @@ export function setupGhosts() {
         ghost.setVelocityX(60);
     });
 
-    // 只註冊一次群組碰撞，避免每發射一次子彈就新增一個監聽器
+    // 只註冊一次群組碰撞
     this.physics.add.overlap(this.player, this.enemyProjectiles, (playerObj, projectileObj) => {
         if (projectileObj && projectileObj.active) {
             console.log("🏹 玩家被糖霜箭射中！");
-            projectileObj.body.enable = false; 
+            
+            // 1. 讓子彈失效並銷毀
+            projectileObj.body.enable = false;
+            
+            // 2. 將子彈傳入統一的戰鬥判定核心（它會自己去抓 candy_arrow 這個 key 並檢查 bubbleGun）
+            handleEnemyAttack(this, playerObj, projectileObj);
+            
+            // 3. 判定完後銷毀子彈
             projectileObj.destroy();
-            damagePlayer(this, 2); // 扣 2 點血
         }
     });
 }

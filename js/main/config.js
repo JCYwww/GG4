@@ -22,7 +22,7 @@ export const config = {
 
     scale: {
         // 跟隨視窗同步縮放
-        mode: Phaser.Scale.RESIZE,
+        mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
 };

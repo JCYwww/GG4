@@ -12,6 +12,12 @@ export function setupUI() {
     const camWidth = this.cameras.main.width;
     const camHeight = this.cameras.main.height;
 
+    // 統一遊戲中文字字體樣式風格
+    const globalTextStyle = {
+        fontFamily: 'Arial, Microsoft JhengHei, sans-serif',
+        fontStyle: 'bold'
+    };
+
     // 1. 定義一個給 UI 專用的播音效 function
     function playClickSound() {
         const currentSfxVolume = gameState.sfxVolume !== undefined ? gameState.sfxVolume : 0.8;
@@ -19,14 +25,12 @@ export function setupUI() {
     }
     scene.playClickSound = playClickSound;
 
-    // 建立圖片按鈕函式（與 EndingCutsceneScene 一致）
+    // 建立圖片按鈕函式（已修正：位置相對於所在的 Container 中心）
     function createImageButton(x, y, texture, onClick) {
         const button = scene.add.image(x, y, texture)
             .setOrigin(0.5)
-            .setScrollFactor(0)
             .setScale(0.4)
-            .setInteractive({ useHandCursor: true })
-            .setDepth(2300);
+            .setInteractive({ useHandCursor: true });
 
         button.on('pointerover', () => {
             button.setScale(0.44);
@@ -49,8 +53,35 @@ export function setupUI() {
         return button;
     }
 
+    // 建立「純底圖 + 程式碼文字」的藍色圓形複合式按鈕（已修正：位置相對於 Container 中心）
+    function createCustomButton(x, y, bgTexture, labelText, labelSize, onClick) {
+        const container = scene.add.container(x, y);
+
+        const bg = scene.add.image(0, 0, bgTexture)
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true });
+
+        const text = scene.add.text(0, 0, labelText, {
+            fontSize: labelSize,
+            fill: '#ffffff',
+            ...globalTextStyle
+        }).setOrigin(0.5);
+
+        container.add([bg, text]);
+
+        bg.on('pointerover', () => { container.setScale(1.1); });
+        bg.on('pointerout', () => { container.setScale(1.0); container.setAlpha(1); });
+        bg.on('pointerdown', () => {
+            container.setScale(0.9);
+            container.setAlpha(0.85);
+            playClickSound();
+            onClick();
+        });
+
+        return container;
+    }
+
     // 將提示視窗 function 綁給場景
-    // 讓外部（如 keySystem）可以直接調用，不需互相 import
     scene.showHintText = function(text, duration = 800) {
         showHintTemporarily(scene, text, duration);
     };
@@ -61,135 +92,121 @@ export function setupUI() {
     this.helpBtn = this.add.image(camWidth - 130, 58, 'help_btn').setScale(0.08).setScrollFactor(0).setDepth(2000).setInteractive({ useHandCursor: true });
     this.settingBtn = this.add.image(camWidth - 50, 58, 'setting_btn').setScale(0.07).setScrollFactor(0).setDepth(2000).setInteractive({ useHandCursor: true });
 
-    // ==========================================
-    // 7. ⚙️ 建立 Setting 設定視窗 (Container)
-    // ==========================================
-    scene.settingWindow = this.add.container(0, 0).setDepth(2200).setScrollFactor(0).setVisible(false);
 
-    const settingMask = this.add.rectangle(0, 0, camWidth, camHeight, 0x000000, 0.7).setOrigin(0, 0).setInteractive();
-    const settingPanelImg = this.add.image(camWidth / 2, camHeight / 2, 'setting_panel');
+    // ==========================================
+    // 7. ⚙️ 建立 Setting 設定視窗 (🎯 修正為中心對齊)
+    // ==========================================
+    // 將 Container 座標定在畫面中心 (camWidth / 2, camHeight / 2)
+    scene.settingWindow = this.add.container(camWidth / 2, camHeight / 2).setDepth(2200).setScrollFactor(0).setVisible(false);
+
+    // 遮罩需要鋪滿畫面，因為 Container 移到了中心，所以遮罩座標要反向扣回
+    const settingMask = this.add.rectangle(-camWidth / 2, -camHeight / 2, camWidth, camHeight, 0x000000, 0.7).setOrigin(0, 0).setInteractive();
     
-    // 1. 先定義拉桿的「中心點」位置
-    const sliderCenterX = camWidth / 2 + 38; 
+    // 底圖直接置中 (0, 0)
+    const settingPanelImg = this.add.image(0, 0, 'UI_BG');
+    
+    // 標題與提示字改為相對座標
+    const settingTitleText = this.add.text(0, -140, '設 定', { fontSize: '36px', fill: '#ffffff', ...globalTextStyle }).setOrigin(0.5);
+    const settingQuitHintText = this.add.text(0, 140, '按下空白鍵離開', { fontSize: '22px', fill: '#ffffff', ...globalTextStyle }).setOrigin(0.5);
 
-    // 2. 獲取軌道圖片的原廠原始寬度
+    // 計算滑桿在 Container 內部的相對位置
+    const sliderCenterX = 38; 
     const trackTexture = this.textures.get('slider_track').getSourceImage();
     const trackWidth = trackTexture.width; 
 
-    // 3. 精準計算出視覺上的最左端與最右端
     const sliderLeftX = sliderCenterX - (trackWidth / 2); 
     const sliderRightX = sliderCenterX + (trackWidth / 2); 
     const sliderFullWidth = trackWidth; 
 
-    const textStyle = { fontSize: '22px', fill: '#ffffff', fontStyle: 'bold', fontFamily: 'Arial' };
+    const textStyle = { fontSize: '24px', fill: '#ffffff', ...globalTextStyle };
 
-    // 調整音量控制 Y 軸往上提，保留下方空間擺放按鈕
-    const bgmY = camHeight / 2 - 65; // 原本是 -35
-    const sfxY = camHeight / 2 + 7; // 原本是 +37
+    const bgmY = -50; 
+    const sfxY = 20; 
 
     // A. 背景音樂 (BGM)
-    const bgmLabel = this.add.text(sliderLeftX - 110, bgmY - 12, '背景音樂', textStyle);
+    const bgmLabel = this.add.text(sliderLeftX - 120, bgmY - 14, '背景音樂', textStyle);
     const bgmTrack = this.add.image(sliderCenterX, bgmY, 'slider_track').setScale(1.0); 
     
     const bgmBarGraphics = this.add.image(sliderLeftX, bgmY, 'slider_track')
         .setOrigin(0, 0.5) 
-        .setTint(0xCBE395)
-        .setDepth(2300)
-        .setScrollFactor(0);
+        .setTint(0xCBE395);
 
     const initialBgmVolume = this.sound.volume; 
     const initialBgmX = sliderLeftX + (sliderFullWidth * initialBgmVolume);
-    const bgmKnob = this.add.image(initialBgmX, bgmY, 'slider_knob').setInteractive({ useHandCursor: true, draggable: true }).setDepth(2300).setScrollFactor(0);
+    const bgmKnob = this.add.image(initialBgmX, bgmY, 'slider_knob').setInteractive({ useHandCursor: true, draggable: true });
     
-    // 初始化位置
     updateProgressBar(bgmBarGraphics, sliderLeftX, initialBgmX, sliderFullWidth);
 
     // B. 遊戲音效 (SFX)
-    const sfxLabel = this.add.text(sliderLeftX - 110, sfxY - 12, '遊戲音效', textStyle);
+    const sfxLabel = this.add.text(sliderLeftX - 120, sfxY - 14, '遊戲音效', textStyle);
     const sfxTrack = this.add.image(sliderCenterX, sfxY, 'slider_track').setScale(1.0);
     
     const sfxBarGraphics = this.add.image(sliderLeftX, sfxY, 'slider_track')
         .setOrigin(0, 0.5)
-        .setTint(0xCBE395)
-        .setDepth(2300)
-        .setScrollFactor(0);
+        .setTint(0xCBE395);
 
     const initialSfxVolume = gameState.sfxVolume !== undefined ? gameState.sfxVolume : 0.8; 
     const initialSfxX = sliderLeftX + (sliderFullWidth * initialSfxVolume);
-    const sfxKnob = this.add.image(initialSfxX, sfxY, 'slider_knob').setInteractive({ useHandCursor: true, draggable: true }).setDepth(2300).setScrollFactor(0);
+    const sfxKnob = this.add.image(initialSfxX, sfxY, 'slider_knob').setInteractive({ useHandCursor: true, draggable: true });
     
-    // 初始化位置
     updateProgressBar(sfxBarGraphics, sliderLeftX, initialSfxX, sliderFullWidth);
 
-    // 建立水平排列的圖片按鈕（位置移到 Y: camHeight / 2 + 75 附近）
-    const btnY = camHeight / 2 + 75;
-
-    // 重新開始按鈕
-    const restartBtn = createImageButton(camWidth / 2 - 130, btnY, 'restart_button', () => {
-        if (scene.bgm) {
-            scene.bgm.stop();
-            scene.bgm.destroy();
-            scene.bgm = null;
-        }
+    const btnY = 95;
+    const restartBtn = createImageButton(-130, btnY, 'restart_button', () => {
+        if (scene.bgm) { scene.bgm.stop(); scene.bgm.destroy(); scene.bgm = null; }
         scene.physics.resume();
         gameState.puzzleActive = false;
         gameState.gameOver = false;
         scene.scene.restart();
     });
 
-    // 離開遊戲（回主畫面）按鈕
-    const quitBtn = createImageButton(camWidth / 2 + 130, btnY, 'quit_button', () => {
-        if (scene.bgm) {
-            scene.bgm.stop();
-            scene.bgm.destroy();
-            scene.bgm = null;
-        }
+    const quitBtn = createImageButton(130, btnY, 'quit_button', () => {
+        if (scene.bgm) { scene.bgm.stop(); scene.bgm.destroy(); scene.bgm = null; }
         scene.physics.resume();
         gameState.puzzleActive = false;
         gameState.gameOver = false;
         scene.scene.start('CoverScene');
     });
 
-    // 預設先隱藏拉桿與新按鈕物件
-    bgmBarGraphics.setVisible(false);
-    sfxBarGraphics.setVisible(false);
-    bgmKnob.setVisible(false);
-    sfxKnob.setVisible(false);
-    restartBtn.setVisible(false);
-    quitBtn.setVisible(false);
-
-    // 將所有靜態/背景元件放入設定視窗 Container
-    scene.settingWindow.add([settingMask, settingPanelImg, bgmLabel, sfxLabel, bgmTrack, sfxTrack]);
+    // 🎯 修正：將滑桿和按鈕全部打包進 Container，使其同步顯示/隱藏與對齊
+    scene.settingWindow.add([
+        settingMask, 
+        settingPanelImg, 
+        settingTitleText, 
+        settingQuitHintText, 
+        bgmLabel, 
+        sfxLabel, 
+        bgmTrack, 
+        sfxTrack,
+        bgmBarGraphics,
+        sfxBarGraphics,
+        bgmKnob,
+        sfxKnob,
+        restartBtn,
+        quitBtn
+    ]);
     
     this.settingBtn.on('pointerdown', () => {
         scene.settingWindow.setVisible(true);
-        // 同步顯示拉桿、旋鈕與圖片按鈕
-        bgmBarGraphics.setVisible(true);
-        sfxBarGraphics.setVisible(true);
-        bgmKnob.setVisible(true);
-        sfxKnob.setVisible(true);
-        restartBtn.setVisible(true);
-        quitBtn.setVisible(true);
-
         playClickSound();
         scene.physics.pause(); 
         gameState.puzzleActive = true; 
     });
 
+    // 修正拖曳偵測：因為物件在 Container 內，pointer.x 需要扣除 Container 的世界座標偏移
     this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
         if (gameObject === bgmKnob || gameObject === sfxKnob) {
-            const clampedX = Phaser.Math.Clamp(pointer.x, sliderLeftX, sliderRightX);
+            const relativeX = pointer.x - (camWidth / 2);
+            const clampedX = Phaser.Math.Clamp(relativeX, sliderLeftX, sliderRightX);
             gameObject.x = clampedX;
             const volumePercent = (clampedX - sliderLeftX) / sliderFullWidth;
     
             if (gameObject === bgmKnob) {
                 updateProgressBar(bgmBarGraphics, sliderLeftX, clampedX, sliderFullWidth);
                 this.sound.volume = volumePercent;
-                console.log(`BGM 音量：${Math.round(volumePercent * 100)}%`);
             } else if (gameObject === sfxKnob) {
                 updateProgressBar(sfxBarGraphics, sliderLeftX, clampedX, sliderFullWidth);
                 gameState.sfxVolume = volumePercent;
-                console.log(`SFX 音量：${Math.round(volumePercent * 100)}%`);
             }
         }
     });
@@ -201,141 +218,187 @@ export function setupUI() {
         
         const targetWidth = totalWidth * percent;
         barImage.scaleX = targetWidth / barImage.width;
-        barImage.setVisible(true);
     }
 
-    // ==========================================
-    // 8. ❓ 建立 Help 說明視窗 (雙主選單 + 雙分頁版)
-    // ==========================================
-    scene.helpWindow = this.add.container(0, 0).setDepth(2200).setScrollFactor(0).setVisible(false);
-    
-    // 背景遮罩
-    const helpMask = this.add.rectangle(0, 0, camWidth, camHeight, 0x000000, 0.7).setOrigin(0, 0).setInteractive();
-    // 視窗背景 (所有畫面通用的毛茸茸外框 BG)
-    const helpPanelImg = this.add.image(camWidth / 2, camHeight / 2, 'help_panel');
-    
-    scene.helpWindow.add([helpMask, helpPanelImg]);
 
-    // ------------------------------------------
-    // A. 建立各個畫面與分頁的 Container
-    // ------------------------------------------
-    const menuPage = this.add.container(0, 0);       // 畫面 0：主選單頁面 (圖一)
+    // ==========================================
+    // 8. ❓ 建立 Help 說明視窗 (🎯 修正為中心對齊)
+    // ==========================================
+    scene.helpWindow = this.add.container(camWidth / 2, camHeight / 2).setDepth(2200).setScrollFactor(0).setVisible(false);
     
-    // 按鍵類的兩頁
-    const keyPage1 = this.add.container(0, 0);       // 按鍵 - 第 1 頁 (原本的圖二：WASD移動)
-    const keyPage2 = this.add.container(0, 0);       // 按鍵 - 第 2 頁 (自訂：例如其他按鍵說明)
+    const helpMask = this.add.rectangle(-camWidth / 2, -camHeight / 2, camWidth, camHeight, 0x000000, 0.7).setOrigin(0, 0).setInteractive();
+    const helpPanelImg = this.add.image(0, 0, 'UI_BG');
     
-    // 道具類的兩頁
-    const itemPage1 = this.add.container(0, 0);      // 道具 - 第 1 頁 (原本的圖三：滑鼠與123)
-    const itemPage2 = this.add.container(0, 0);      // 道具 - 第 2 頁 (自訂：例如進階道具組合說明)
+    const helpTitleQuestionText = this.add.text(0, -140, '說 明', { fontSize: '36px', fill: '#ffffff', ...globalTextStyle }).setOrigin(0.5);
+    const helpQuitHintText = this.add.text(0, 140, '按下空白鍵離開', { fontSize: '22px', fill: '#ffffff', ...globalTextStyle }).setOrigin(0.5);
+    
+    scene.helpWindow.add([helpMask, helpPanelImg, helpTitleQuestionText, helpQuitHintText]);
+
+    // 子分頁 Container 不需要再給位移，因為父層已經在中心了
+    const menuPage = this.add.container(0, 0);      
+    const keyPage1 = this.add.container(0, 0);      
+    const keyPage2 = this.add.container(0, 0);      
+    const itemPage1 = this.add.container(0, 0);     
+    const itemPage2 = this.add.container(0, 0);     
     
     scene.helpWindow.add([menuPage, keyPage1, keyPage2, itemPage1, itemPage2]);
 
-    // ------------------------------------------
-    // B. 佈局：畫面 0 - 主選單 (圖一內容)
-    // ------------------------------------------
+    let currentMode = 'menu'; 
+    let currentPage = 1;      
 
-    // 「按鍵」主按鈕
-    const btnKey = this.add.image(camWidth / 2 - 120, camHeight / 2, 'btn_key_bg').setInteractive({ useHandCursor: true });
-
-    // 「道具」主按鈕
-    const btnItem = this.add.image(camWidth / 2 + 120, camHeight / 2, 'btn_item_bg').setInteractive({ useHandCursor: true });
-
-    menuPage.add([ btnKey, btnItem]);
-
-    // ------------------------------------------
-    // C. 佈局：按鍵說明的兩頁 (圖二類別)
-    // ------------------------------------------
-    // 按鍵第 1 頁
-    const keyContent1 = this.add.image(camWidth / 2, camHeight / 2, 'key_guide_page1'); 
-    keyPage1.add([keyContent1]);
-
-    // 按鍵第 2 頁
-    const keyContent2 = this.add.image(camWidth / 2, camHeight / 2, 'key_guide_page2'); // 請確保載入此資源
-    keyPage2.add([keyContent2]);
-
-    // ------------------------------------------
-    // D. 佈局：道具說明的兩頁 (圖三類別)
-    // ------------------------------------------
-    // 道具第 1 頁
-    const itemContent1 = this.add.image(camWidth / 2, camHeight / 2, 'item_guide_page1'); 
-    itemPage1.add([itemContent1]);
-
-    // 道具第 2 頁
-    const itemContent2 = this.add.image(camWidth / 2, camHeight / 2, 'item_guide_page2'); // 請確保載入此資源
-    itemPage2.add([itemContent2]);
-
-    // ------------------------------------------
-    // E. 建立切換用的「左右小三角形箭頭」
-    // ------------------------------------------
-    const arrowLeft = this.add.image(camWidth / 2 - 365, camHeight / 2, 'arrow_left').setInteractive({ useHandCursor: true }).setVisible(false);
-    const arrowRight = this.add.image(camWidth / 2 + 340, camHeight / 2, 'arrow_right').setInteractive({ useHandCursor: true }).setVisible(false);
-    scene.helpWindow.add([arrowLeft, arrowRight]);
-
-    // ------------------------------------------
-    // F. 核心分頁控制邏輯 (修正版：第 1 頁左鍵可回主選單)
-    // ------------------------------------------
-    let currentMode = 'menu'; // 'menu', 'key', 'item'
-    let currentPage = 1;      // 1 或 2
-
-    function updateHelpWindowView() {
-        // 先將所有分頁隱藏
-        menuPage.setVisible(false);
-        keyPage1.setVisible(false);
-        keyPage2.setVisible(false);
-        itemPage1.setVisible(false);
-        itemPage2.setVisible(false);
-
-        // 根據目前的模式與頁數，顯示對應的 Container
-        if (currentMode === 'menu') {
-            menuPage.setVisible(true);
-            arrowLeft.setVisible(false);  // 主選單不顯示左箭頭
-            arrowRight.setVisible(false); // 主選單不顯示右箭頭
-        } 
-        else if (currentMode === 'key') {
-            if (currentPage === 1) {
-                keyPage1.setVisible(true);
-                arrowLeft.setVisible(true);   // 顯示左箭頭 (點擊回主選單)
-                arrowRight.setVisible(true);  // 顯示右箭頭 (點擊去第 2 頁)
-            } else {
-                keyPage2.setVisible(true);
-                arrowLeft.setVisible(true);   // 顯示左箭頭 (點擊回第 1 頁)
-                arrowRight.setVisible(false); // 第 2 頁不能再往右
-            }
-        } 
-        else if (currentMode === 'item') {
-            if (currentPage === 1) {
-                itemPage1.setVisible(true);
-                arrowLeft.setVisible(true);   // 顯示左箭頭 (點擊回主選單)
-                arrowRight.setVisible(true);  // 顯示右箭頭 (點擊去第 2 頁)
-            } else {
-                itemPage2.setVisible(true);
-                arrowLeft.setVisible(true);   // 顯示左箭頭 (點擊回第 1 頁)
-                arrowRight.setVisible(false); // 第 2 頁不能再往右
-            }
-        }
-    }
-
-    // ------------------------------------------
-    // G. 事件綁定 (修正版：處理返回 menu 的邏輯)
-    // ------------------------------------------
-    // 主選單點擊「按鍵」
-    btnKey.on('pointerdown', () => {
-        playClickSound();
+    // 建立選單按鈕（相對座標）
+    const btnKey = createCustomButton(-140, 10, 'btn_key_bg', '按鍵', '28px', () => {
         currentMode = 'key';
         currentPage = 1;
         updateHelpWindowView();
     });
 
-    // 主選單點擊「道具」
-    btnItem.on('pointerdown', () => {
-        playClickSound();
+    const btnItem = createCustomButton(140, 10, 'btn_item_bg', '道具', '28px', () => {
         currentMode = 'item';
         currentPage = 1;
         updateHelpWindowView();
     });
 
-    // 點擊右箭頭 -> 切換到第 2 頁
+    menuPage.add([btnKey, btnItem]);
+
+    // ==========================================
+    // 🎨 說明視窗內頁 - 圖片基礎上使用程式碼補回文字與圖形
+    // ==========================================
+
+    // 共同文字樣式定義
+    const styleTitle = { fontSize: '28px', fill: '#ffffff', ...globalTextStyle };
+    const styleDesc = { fontSize: '20px', fill: '#ffffff', ...globalTextStyle };
+    const styleKeyLabel = { fontSize: '22px', fill: '#ffffff', ...globalTextStyle };
+
+    // ------------------------------------------
+    // 🔑 按鍵說明頁面 1 (移動與跳躍)
+    // ------------------------------------------
+    const keyContent1 = this.add.image(0, 0, 'key_guide_page1'); 
+    
+    // 補回文字標題
+    const keyTitle1 = this.add.text(0, -115, '跳 躍', styleTitle).setOrigin(0.5);
+    const keyTitle2 = this.add.text(0, 115, '左 右 移 動', styleTitle).setOrigin(0.5);
+
+    keyPage1.add([
+        keyContent1, keyTitle1, keyTitle2
+    ]);
+
+
+    // ------------------------------------------
+    // 🖱️ 按鍵說明頁面 2 (滑鼠與功能按鍵)
+    // ------------------------------------------
+    const keyContent2 = this.add.image(0, 0, 'key_guide_page2'); 
+
+    // 滑鼠說明文字與箭頭
+    const mouseText1 = this.add.text(-185, -90, '點擊鏡子、拖移照片、合成鑰匙', { ...styleDesc, fontSize: '18px' }).setOrigin(0.5);
+    const mouseText2 = this.add.text(-50, 80, '使用道具', styleDesc).setOrigin(0.5);
+
+    // 功能按鍵與標題文字 (對齊右側空白方格)
+    const txtE_Title = this.add.text(65, -90, '物品互動', styleDesc).setOrigin(0.5);
+
+    const txtQ_Title = this.add.text(195, -90, '丟棄道具', styleDesc).setOrigin(0.5);
+
+    const txtNum_Title = this.add.text(130, 30, '選擇道具', styleDesc).setOrigin(0.5);
+
+    keyPage2.add([
+        keyContent2, mouseText1, mouseText2,
+        txtE_Title, txtQ_Title,
+        txtNum_Title
+    ]);
+
+
+    // ------------------------------------------
+    // 🍿 道具說明頁面 1 (被動型)
+    // ------------------------------------------
+    const itemContent1 = this.add.image(0, 0, 'UI_BG'); 
+    
+    const itemTitle1 = this.add.text(0, -130, '道具_被動型 (選擇該道具即生效)', styleTitle).setOrigin(0.5);
+    
+    // 左側：爆米花花
+    const txtPopName   = this.add.text(-130, -70, '爆米花花', styleDesc).setOrigin(0.5);
+    const iconPopcorn  = this.add.image(-130, 10, 'popcorn').setScale(0.1); 
+    const txtPopEffect = this.add.text(-130, 90, '跑速提升', styleDesc).setOrigin(0.5);
+
+    // 右側：雲朵棉花糖
+    const txtMarshName   = this.add.text(130, -70, '雲朵棉花糖', styleDesc).setOrigin(0.5);
+    const iconMarsh      = this.add.image(130, 10, 'marshmallow').setScale(0.08);
+    const txtMarshEffect = this.add.text(130, 90, '跳躍力提升', styleDesc).setOrigin(0.5);
+
+    itemPage1.add([itemTitle1, itemContent1, txtPopName, iconPopcorn, txtPopEffect, txtMarshName, iconMarsh, txtMarshEffect]);
+
+
+    // ------------------------------------------
+    // 🍮 道具說明頁面 2 (使用型)
+    // ------------------------------------------
+    const itemContent2 = this.add.image(0, 0, 'UI_BG'); 
+
+    const itemTitle2 = this.add.text(0, -130, '道具_使用型 (選擇該道具並按滑鼠左鍵使用)', styleTitle).setOrigin(0.5);
+
+    // 左：隱身果凍
+    const txtJellyName   = this.add.text(-180, -70, '隱身果凍', styleDesc).setOrigin(0.5);
+    const iconJelly      = this.add.image(-180, 10, 'jelly').setScale(0.1);
+    const txtJellyEffect = this.add.text(-180, 90, '隱身 5 秒', styleDesc).setOrigin(0.5);
+
+    // 中：彩虹生命糖
+    const txtCandyName   = this.add.text(0, -70, '彩虹生命糖', styleDesc).setOrigin(0.5);
+    const iconCandy      = this.add.image(0, 10, 'candy').setScale(0.1);
+    const txtCandyEffect = this.add.text(0, 90, '恢復 3 點 HP', styleDesc).setOrigin(0.5);
+
+    // 右：泡泡糖防護罩
+    const txtBubbleName   = this.add.text(180, -70, '泡泡糖防護罩', styleDesc).setOrigin(0.5);
+    const iconBubble      = this.add.image(180, 10, 'bubbleGun').setScale(0.08); 
+    const txtBubbleEffect = this.add.text(180, 90, '每次受到傷害減半', styleDesc).setOrigin(0.5);
+
+    itemPage2.add([itemTitle2, itemContent2, txtJellyName, iconJelly, txtJellyEffect, txtCandyName, iconCandy, txtCandyEffect, txtBubbleName, iconBubble, txtBubbleEffect]);
+
+    // 左右切換箭頭（相對座標）
+    const arrowLeft = this.add.image(-365, 0, 'arrow_left').setInteractive({ useHandCursor: true }).setVisible(false);
+    const arrowRight = this.add.image(340, 0, 'arrow_right').setInteractive({ useHandCursor: true }).setVisible(false);
+    scene.helpWindow.add([arrowLeft, arrowRight]);
+
+    function updateHelpWindowView() {
+        menuPage.setVisible(false);
+        keyPage1.setVisible(false);
+        keyPage2.setVisible(false);
+        itemPage1.setVisible(false);
+        itemPage2.setVisible(false);
+        
+        arrowLeft.setVisible(false);
+        arrowRight.setVisible(false);
+
+        if (!scene.helpWindow.visible) return;
+
+        if (currentMode === 'menu') {
+            menuPage.setVisible(true);
+            helpTitleQuestionText.setVisible(true);
+        } 
+        else if (currentMode === 'key') {
+            helpTitleQuestionText.setVisible(false); 
+            if (currentPage === 1) {
+                keyPage1.setVisible(true);
+                arrowLeft.setVisible(true);   
+                arrowRight.setVisible(true);  
+            } else {
+                keyPage2.setVisible(true);
+                arrowLeft.setVisible(true);   
+            }
+        } 
+        else if (currentMode === 'item') {
+            helpTitleQuestionText.setVisible(false); 
+            if (currentPage === 1) {
+                itemPage1.setVisible(true);
+                arrowLeft.setVisible(true);   
+                arrowRight.setVisible(true);  
+            } else {
+                itemPage2.setVisible(true);
+                arrowLeft.setVisible(true);   
+            }
+        }
+    }
+
+    // ------------------------------------------
+    // G. 事件綁定
+    // ------------------------------------------
     arrowRight.on('pointerdown', () => {
         playClickSound();
         if (currentPage === 1) {
@@ -344,23 +407,19 @@ export function setupUI() {
         }
     });
 
-    // 點擊左箭頭 -> 判斷是要回第 1 頁還是回主選單
     arrowLeft.on('pointerdown', () => {
         playClickSound();
         if (currentPage === 2) {
-            // 如果在第 2 頁，點左箭頭回到第 1 頁
             currentPage = 1;
         } else if (currentPage === 1) {
-            // 如果已經在第 1 頁，點左箭頭回到主選單
             currentMode = 'menu';
         }
         updateHelpWindowView();
     });
 
-    // 點擊右上角總 ❓ 按鈕打開說明視窗
     this.helpBtn.on('pointerdown', () => {
         scene.helpWindow.setVisible(true);
-        currentMode = 'menu'; // 每次打開都回到圖一主選單
+        currentMode = 'menu'; 
         updateHelpWindowView();
         playClickSound();
         scene.physics.pause();
@@ -381,122 +440,73 @@ export function setupUI() {
                 scene.descPanel.setVisible(false);
             }
 
-            bgmBarGraphics.setVisible(false);
-            sfxBarGraphics.setVisible(false);
-            bgmKnob.setVisible(false);
-            sfxKnob.setVisible(false);
-            restartBtn.setVisible(false);
-            quitBtn.setVisible(false);
+            updateHelpWindowView();
             scene.physics.resume();
             gameState.puzzleActive = false;
         }
     });
 
     // ==========================================
-    // 常規 UI 與 道具背包區
+    // 常規 UI 與 道具背包區 (保持原樣不變)
     // ==========================================
     const hpBg = this.add.image(40, 20, 'hp_bar_bg').setOrigin(0,0).setScale(0.25).setScrollFactor(0).setDepth(1800);
-    this.hpText = this.add.text(135, 45, `HP: ${gameState.hp}/${gameState.maxHp}`, { fontSize: '24px', fill: '#ffffff', fontStyle: 'bold' }).setScrollFactor(0).setDepth(1850);
+    this.hpText = this.add.text(135, 45, `HP: ${gameState.hp}/${gameState.maxHp}`, { fontSize: '24px', fill: '#ffffff', ...globalTextStyle }).setScrollFactor(0).setDepth(1850);
 
-    // 🎯 【優化修正】：同步安全呼叫標準背包初始化，確保主與解謎世界完全統一！
     setupInventoryUI(scene);
     
-    // 💡 擴充注入：原 uiSystem 的「雙擊格子看詳細說明」邏輯
     scene.inventorySlots.forEach((slot, i) => {
         let lastClickTime = 0;
-        
         slot.on('pointerdown', () => {
             const currentTime = scene.time.now;
             const clickDelay = currentTime - lastClickTime;
             lastClickTime = currentTime;
 
-            // 雙擊 (300毫秒內) 且格子內確實有東西時，觸發說明彈窗
             if (clickDelay < 300 && gameState.inventory[i]) {
                 const itemInfo = scene.itemDescriptions[gameState.inventory[i]] || {
                     name: gameState.inventory[i],
                     effect: '未知道具'
                 };
-
                 scene.descTitle.setText(itemInfo.name);
                 scene.descContent.setText(itemInfo.effect);
                 scene.descPanel.setVisible(true);
-
                 scene.physics.pause();
                 gameState.puzzleActive = true;
             }
         });
     });
 
-    // 任務欄底圖與文字
     const missionBg = this.add.image(40, 183, 'mission_bg').setOrigin(0,0).setScale(0.6, 0.25).setScrollFactor(0).setDepth(1800);
     this.missionText = this.add.text(90, 203, '躲避幽靈攻擊，收集鑰匙碎片', {
         fontSize: '24px',
         fill: '#ffffff',
+        fontFamily: globalTextStyle.fontFamily,
+        fontStyle: globalTextStyle.fontStyle,
         padding: { top: 8, bottom: 8 }
-    })
-        .setScale(0.9)
-        .setScrollFactor(0)
-        .setDepth(1850);
+    }).setScale(0.9).setScrollFactor(0).setDepth(1850);
     
-    // 計時器
-    scene.clockIcon = this.add.image(camWidth - 510, 60, 'clock')
-        .setScale(0.15)
-        .setScrollFactor(0)
-        .setDepth(1800);
+    scene.clockIcon = this.add.image(camWidth - 510, 60, 'clock').setScale(0.15).setScrollFactor(0).setDepth(1800);
+    scene.timerText = this.add.text(camWidth - 465, 46, '00:00', { fontSize: '24px', fill: '#ffffff', ...globalTextStyle }).setScrollFactor(0).setDepth(1850);
 
-    scene.timerText = this.add.text(camWidth - 465, 46, '00:00', {
-        fontSize: '24px',
-        fill: '#ffffff',
-        fontStyle: 'bold'
-    })
-        .setScrollFactor(0)
-        .setDepth(1850);
-
-    // ==========================================
-    // 🎯 鑰匙碎片條初始化
-    // ==========================================
     scene.fragmentIcon = this.add.image(camWidth - 270, 60, 'fragment_bar').setScale(0.17,0.2).setScrollFactor(0).setDepth(1800);
-    scene.fragmentText = this.add.text(camWidth - 275, 50, `x${gameState.keyFragments}`, { fontSize: '24px', fill: '#ffffff', fontStyle: 'bold' }).setScrollFactor(0).setDepth(1850);
-    scene.hintText = this.add.text(camWidth - 260, 100, '', { fontSize: '14px', fill: '#ffffff' }).setOrigin(0.5).setScrollFactor(0).setDepth(1850);
+    scene.fragmentText = this.add.text(camWidth - 275, 50, `x${gameState.keyFragments}`, { fontSize: '24px', fill: '#ffffff', ...globalTextStyle }).setScrollFactor(0).setDepth(1850);
+    scene.hintText = this.add.text(camWidth - 260, 100, '', { fontSize: '14px', fill: '#ffffff', ...globalTextStyle }).setOrigin(0.5).setScrollFactor(0).setDepth(1850);
 
     scene.registry.events.off('UPDATE_FRAGMENTS'); 
-    scene.registry.events.on('UPDATE_FRAGMENTS', () => { 
-        updateKeyUI(scene); 
-    });
-
+    scene.registry.events.on('UPDATE_FRAGMENTS', () => { updateKeyUI(scene); });
     updateKeyUI(scene);
 
-    this.doorHintText = this.add.text(0, 0, '', { fontSize: '18px', color: '#ffffff', backgroundColor: '#000000' }).setDepth(100).setVisible(false);
-    this.interactHintText = this.add.text(this.scale.width / 2, this.scale.height - 80, '按 E 互動', { fontSize: '28px', fill: '#ffffff', backgroundColor: '#000000', padding: { x: 12, y: 8 } }).setOrigin(0.5).setScrollFactor(0).setVisible(false);
-    this.itemHintText = this.add.text(0, 0, '', { fontSize: '16px', fill: '#ffff00', backgroundColor: '#000000' }).setDepth(999).setVisible(false);
+    this.doorHintText = this.add.text(0, 0, '', { fontSize: '18px', color: '#ffffff', backgroundColor: '#000000', ...globalTextStyle }).setDepth(100).setVisible(false);
+    this.interactHintText = this.add.text(this.scale.width / 2, this.scale.height - 80, '按 E 互動', { fontSize: '28px', fill: '#ffffff', backgroundColor: '#000000', padding: { x: 12, y: 8 }, ...globalTextStyle }).setOrigin(0.5).setScrollFactor(0).setVisible(false);
+    this.itemHintText = this.add.text(0, 0, '', { fontSize: '16px', fill: '#ffff00', backgroundColor: '#000000', ...globalTextStyle }).setDepth(999).setVisible(false);
     
-    // 說明面板 (調整 Depth 至 2600，高於一般 UI 面板，防止被遮擋)
     scene.descPanel = this.add.container(0, 0).setScrollFactor(0).setDepth(2600).setVisible(false);
     const descBg = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.7).setOrigin(0, 0).setInteractive(); 
     const descBox = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, 400, 250, 0x332222).setStrokeStyle(3, 0xffffff);
-    scene.descTitle = this.add.text(this.scale.width / 2, this.scale.height / 2 - 80, '', {
-        fontSize: '28px',
-        fill: '#ffff00',
-        fontStyle: 'bold',
-        fontFamily: 'Arial, Microsoft JhengHei',
-        padding: { top: 10, bottom: 10 }
-    }).setOrigin(0.5);
-    scene.descContent = this.add.text(this.scale.width / 2, this.scale.height / 2 - 5, '', {
-        fontSize: '18px',
-        fill: '#ffffff',
-        fontFamily: 'Arial, Microsoft JhengHei',
-        wordWrap: { width: 340 },
-        align: 'center',
-        lineSpacing: 8,
-        padding: { top: 8, bottom: 8 }
-    }).setOrigin(0.5);
-    const closeText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 80, '按下空白鍵離開', { fontSize: '14px', fill: '#aaaaaa' }).setOrigin(0.5);
+    scene.descTitle = this.add.text(this.scale.width / 2, this.scale.height / 2 - 80, '', { fontSize: '28px', fill: '#ffff00', padding: { top: 10, bottom: 10 }, ...globalTextStyle }).setOrigin(0.5);
+    scene.descContent = this.add.text(this.scale.width / 2, this.scale.height / 2 - 5, '', { fontSize: '18px', fill: '#ffffff', wordWrap: { width: 340 }, align: 'center', lineSpacing: 8, padding: { top: 8, bottom: 8 }, ...globalTextStyle }).setOrigin(0.5);
+    const closeText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 80, '按下空白鍵離開', { fontSize: '14px', fill: '#aaaaaa', ...globalTextStyle }).setOrigin(0.5);
     scene.descPanel.add([descBg, descBox, scene.descTitle, scene.descContent, closeText]);
-    descBg.on('pointerdown', () => {
-        scene.descPanel.setVisible(false);
-        scene.physics.resume();
-        gameState.puzzleActive = false;
-    });
+    descBg.on('pointerdown', () => { scene.descPanel.setVisible(false); scene.physics.resume(); gameState.puzzleActive = false; });
     
     scene.itemDescriptions = { 
         'bubbleGun': { name: '泡泡糖防護罩', effect: '每次受到傷害減半' },
@@ -505,9 +515,9 @@ export function setupUI() {
         'marshmallow': { name: '雲朵棉花糖', effect: '跳躍力提升' },
         'candy': { name: '彩虹生命糖', effect: '按下 滑鼠右鍵 使用後，恢復 3 點 HP' }};
 
-    this.bossHpText = this.add.text(this.scale.width / 2 - 60, 20, '', { fontSize: '28px', fill: '#ff4444' }).setScrollFactor(0).setVisible(false);
-    this.gameOverText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 60, 'GAME OVER', { fontSize: '64px', fill: '#ff0000' }).setOrigin(0.5).setVisible(false).setScrollFactor(0);
-    this.restartText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 40, '按下空白鍵重啟', { fontSize: '32px', fill: '#fff' }).setOrigin(0.5).setVisible(false).setScrollFactor(0);
+    this.bossHpText = this.add.text(this.scale.width / 2 - 60, 20, '', { fontSize: '28px', fill: '#ff4444', ...globalTextStyle }).setScrollFactor(0).setVisible(false);
+    this.gameOverText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 60, 'GAME OVER', { fontSize: '64px', fill: '#ff0000', ...globalTextStyle }).setOrigin(0.5).setVisible(false).setScrollFactor(0);
+    this.restartText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 40, '按下空白鍵重啟', { fontSize: '32px', fill: '#fff', ...globalTextStyle }).setOrigin(0.5).setVisible(false).setScrollFactor(0);
 }
 
 export function showHintTemporarily(scene, text, duration = 800) { 

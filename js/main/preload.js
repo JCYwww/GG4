@@ -24,6 +24,9 @@ export function preloadAssets() {
     this.load.image('help_btn', 'assets/ui/helpBtn.png');
     this.load.image('setting_btn', 'assets/ui/settingBtn.png');
 
+    //介面背景
+    this.load.image('UI_BG', 'assets/ui/UI_BG.png');
+
     //設定介面 (音量調節)
     this.load.image('slider_track', 'assets/ui/slider_track.png');
     this.load.image('slider_knob', 'assets/ui/slider_knob.png');
@@ -95,7 +98,6 @@ export function preloadAssets() {
     this.load.image('ghost_melee', 'assets/enemies/ghost_melee.png');
     this.load.image('ghost_range', 'assets/enemies/ghost_range.png');
     this.load.image('candy_arrow', 'assets/candy_arrow.png');
-    this.load.image('shockwave', 'assets/spark.png');
     this.load.image('shockwave_left', 'assets/魔王攻擊左.png');
     this.load.image('shockwave_center', 'assets/魔王攻擊中.png');
     this.load.image('shockwave_right', 'assets/魔王攻擊右.png');

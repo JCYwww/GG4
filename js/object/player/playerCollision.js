@@ -1,7 +1,5 @@
 
 //碰撞重疊
-
-import { hitObstacle } from '../../systems/world/interactionSystem.js';
 import { collectItem } from '../../systems/world/itemSystem.js';
 import { collectTablet } from '../../systems/world/worldBuilder.js';
 import { handleEnemyAttack } from '../../systems/combat/combatSystem.js';
